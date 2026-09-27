@@ -4,9 +4,42 @@
 // while Atlas is momentarily unreachable.
 import app, { ensureDb } from '../src/server.js';
 
-// IMPORTANT: Vercel's Node runtime pre-parses request bodies by default,
-// which breaks Express's own express.json() ("Invalid JSON" 500s).
-// Disabling it lets the raw stream reach Express untouched.
+// Vercel's Node runtime pre-buffers the request stream and exposes a `body`
+// getter that throws on access — which crashes Express's own
+// express.json() ("Invalid JSON" 500s). So this entry parses the raw stream
+// itself, shadows the throwing getter, and marks the body as parsed so
+// Express skips its own parsing entirely.
+async function attachParsedBody(req) {
+  try {
+    Object.defineProperty(req, 'body', {
+      value: undefined,
+      writable: true,
+      configurable: true,
+      enumerable: true
+    });
+  } catch {
+    /* ignore — fall through to stream parsing */
+  }
+  let raw = '';
+  try {
+    for await (const chunk of req) {
+      raw += chunk;
+    }
+  } catch {
+    raw = '';
+  }
+  if (!raw) {
+    req.body = {};
+  } else {
+    try {
+      req.body = JSON.parse(raw);
+    } catch {
+      req.body = {};
+    }
+  }
+  req._body = true;
+}
+
 export const config = {
   api: {
     bodyParser: false
@@ -18,6 +51,21 @@ export default async function handler(req, res) {
     await ensureDb();
   } catch (err) {
     console.error('DB ensure failed:', err && err.message ? err.message : err);
+  }
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+    try {
+      Object.defineProperty(req, 'body', {
+        value: {},
+        writable: true,
+        configurable: true,
+        enumerable: true
+      });
+    } catch {
+      /* ignore */
+    }
+    req._body = true;
+  } else {
+    await attachParsedBody(req);
   }
   return app(req, res);
 }
