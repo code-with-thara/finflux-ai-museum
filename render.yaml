@@ -1,0 +1,26 @@
+# Render Blueprint — use only if this AI_MUSEUM_FINALONE folder is the repo root.
+# If your repo root is higher up, set Root Directory manually in Render dashboard
+# to AI_MUSEUM_FINALONE_with_welcome/AI_MUSEUM_FINALONE_with_intro/AI_MUSEUM_FINALONE/backend
+services:
+  - type: web
+    name: smartbudget-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: JWT_SECRET
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        value: openrouter/free
+      - key: LLM_PROVIDER
+        value: openrouter
