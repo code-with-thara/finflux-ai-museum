@@ -4,6 +4,15 @@
 // while Atlas is momentarily unreachable.
 import app, { ensureDb } from '../src/server.js';
 
+// IMPORTANT: Vercel's Node runtime pre-parses request bodies by default,
+// which breaks Express's own express.json() ("Invalid JSON" 500s).
+// Disabling it lets the raw stream reach Express untouched.
+export const config = {
+  api: {
+    bodyParser: false
+  }
+};
+
 export default async function handler(req, res) {
   try {
     await ensureDb();
